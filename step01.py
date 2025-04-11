@@ -21,7 +21,7 @@ class Square(Function):
 
 if __name__ == "__main__":
     x = Variable(np.array(10))
-    f = Function()
+    f = Square()
     y = f(x)
     
     print(type(y))
