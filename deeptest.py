@@ -1,6 +1,6 @@
 import numpy as np
 
-from step01 import Variable, Square, Exp, numerical_diff
+from core import Variable, Square, Exp, numerical_diff
 
 
 def test01():
