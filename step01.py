@@ -3,24 +3,63 @@ import numpy as np
 class Variable:
     def __init__(self, data):
         self.data = data
+        self.grad = None
+        self.creator = None
+        
+    def set_creator(self, func):
+        self.creator = func
+        
+    # def backward(self):
+    #     f = self.creator    # 获取函数
+    #     if f is not None:
+    #         x = f.input     # 获取函数的输入
+    #         x.grad = f.backward(self.grad)      # 调用函数的backward方法
+    #         x.backward()    # 调用自己前面那个变量的backward方法（递归）
+    
+    def backward(self):
+        funcs = [self.creator]
+        while funcs:
+            f = funcs.pop()
+            x, y = f.input, f.output
+            x.grad = f.backward(y.grad)
+            
+            if x.creator is not None:
+                funcs.append(x.creator)
         
 class Function:
     def __call__(self, input):
         x = input.data
         y = self.forward(x)
         output = Variable(y)
+        output.set_creator(self)
+        self.input = input
+        self.output = output
         return output
     
     def forward(self, x):
         raise NotImplementedError()
+    
+    def backward(self, gy):
+        raise NotImplementedError()
+
 
 class Square(Function):
     def forward(self, x):
         return x ** 2
     
+    def backward(self, gy):
+        x = self.input.data
+        gx = 2 * x * gy
+        return gx
+    
 class Exp(Function):
     def forward(self, x):
         return np.exp(x)
+    
+    def backward(self, gy):
+        x = self.input.data
+        gx = np.exp(x) * gy
+        return gx
     
 def numerical_diff(f, x, eps=1e-4):
     x0 = Variable(x.data - eps)
@@ -29,27 +68,6 @@ def numerical_diff(f, x, eps=1e-4):
     y1 = f(x1)
     return (y1.data - y0.data) / (2 * eps)
 
-if __name__ == "__main__":
-    A = Square()
-    B = Exp()
-    C = Square()
+
     
-    x = Variable(np.array(0.5))
-    a = A(x)
-    b = B(a)
-    y = C(b)
     
-    print(type(y))
-    print(y.data)
-    
-    f = Square()
-    x = Variable(np.array(2.0))
-    dy = numerical_diff(f, x)
-    print(dy)
-    
-    def f(x):
-        return C(B(A(x)))
-    
-    x = Variable(np.array(0.5))
-    dy = numerical_diff(f, x)
-    print(dy)
