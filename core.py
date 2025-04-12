@@ -36,15 +36,20 @@ class Variable:
                 funcs.append(x.creator)
         
 class Function:
-    def __call__(self, inputs):
+    def __call__(self, *inputs):
         xs = [x.data for x in inputs]
-        ys = self.forward(xs)
+        ys = self.forward(*xs)      # 使用星号进行解包
+        if not isinstance(ys, tuple):       # 对非元组情况的额外处理
+            ys = (ys,)
         outputs = [Variable(as_array(y)) for y in ys]
+        
         for output in outputs:
             output.set_creator(self)
         self.inputs = inputs
         self.outputs = outputs
-        return outputs
+        
+        # 如果列表只有一个元素，则返回第一个元素
+        return outputs if len(outputs) > 1 else outputs[0]
     
     def forward(self, xs):
         raise NotImplementedError()
@@ -72,16 +77,18 @@ class Exp(Function):
         return gx
 
 class Add(Function):
-    def forward(self, xs):
-        x0, x1 = xs
+    def forward(self, x0, x1):
         y = x0 + x1
-        return (y,)
+        return y
 
 def square(x):
     return Square()(x)
 
 def exp(x):
     return Exp()(x)
+
+def add(x0, x1):
+    return Add()(x0, x1)
 
 def numerical_diff(f, x, eps=1e-4):
     x0 = Variable(x.data - eps)
