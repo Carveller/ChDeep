@@ -32,15 +32,23 @@ from core import Variable, Add, add, square, exp
 # print(z.data)
 # print(x.grad)
 # print(y.grad)
-x = Variable(np.array(3.0))
-y = add(x, x)
+# x = Variable(np.array(3.0))
+# y = add(x, x)
+# y.backward()
+# print(x.grad)
+
+# # x = Variable(np.array(3))
+# x.cleargrad()
+# y = add(add(x, x), x)
+# y.backward()
+
+# print(y.grad, id(y.grad))
+# print(x.grad, id(x.grad))
+
+x = Variable(np.array(2.0))
+a = square(x)
+y = add(square(a), square(a))
 y.backward()
+
+print(y.data)
 print(x.grad)
-
-# x = Variable(np.array(3))
-x.cleargrad()
-y = add(add(x, x), x)
-y.backward()
-
-print(y.grad, id(y.grad))
-print(x.grad, id(x.grad))

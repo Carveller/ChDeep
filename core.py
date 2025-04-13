@@ -11,9 +11,12 @@ class Variable:
         self.data = data
         self.grad = None
         self.creator = None
+        # 增加辈分变量，实现复杂计算图
+        self.generation = 0
         
     def set_creator(self, func):
         self.creator = func
+        self.generation = func.generation + 1
         
     # def backward(self):
     #     f = self.creator    # 获取函数
@@ -28,7 +31,17 @@ class Variable:
             self.grad = np.ones_like(self.data)
         
         # 保存函数，后面需要调用函数的backward方法
-        funcs = [self.creator]
+        funcs = []
+        seen_set = set()
+        
+        def add_func(f):
+            if f not in seen_set:
+                funcs.append(f)
+                seen_set.add(f)
+                funcs.sort(key=lambda x: x.generation)
+        
+        add_func(self.creator)
+        
         while funcs:
             # 获得后面的func
             f = funcs.pop()
@@ -54,7 +67,7 @@ class Variable:
                     x.grad += gx
                 # 保存每个输入的创造者
                 if x.creator is not None:
-                    funcs.append(x.creator)
+                    add_func(x.creator)
     
     def cleargrad(self):
         self.grad = None
@@ -67,6 +80,8 @@ class Function:
         if not isinstance(ys, tuple):       # 对非元组情况的额外处理
             ys = (ys,)
         outputs = [Variable(as_array(y)) for y in ys]
+        
+        self.generation = max([x.generation for x in inputs])
         
         for output in outputs:
             output.set_creator(self)
