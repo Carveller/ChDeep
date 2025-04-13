@@ -23,17 +23,42 @@ class Variable:
     #         x.backward()    # 调用自己前面那个变量的backward方法（递归）
     
     def backward(self):
+        # 最后的输出是没有梯度的，需要指定梯度
         if self.grad is None:
-            self.grad = np.ones_like(self.grad)
+            self.grad = np.ones_like(self.data)
         
+        # 保存函数，后面需要调用函数的backward方法
         funcs = [self.creator]
         while funcs:
+            # 获得后面的func
             f = funcs.pop()
-            x, y = f.input, f.output
-            x.grad = f.backward(y.grad)
-            
-            if x.creator is not None:
-                funcs.append(x.creator)
+            # 获取输出
+            gys = [output.grad for output in f.outputs]
+            # 调用函数的backward，获得输入的梯度，并作为下一个函数backward的输入
+            gxs = f.backward(*gys)
+            if not isinstance(gxs, tuple):
+                gxs = (gxs, )
+            # 赋值输入的梯度
+            for x, gx in zip(f.inputs, gxs):
+                # 如果x.grad是None，说明是第一次遇到这个变量
+                if x.grad is None:
+                    x.grad = gx
+                else:   # 否则说明这个变量被重复使用，需要在已经有的梯度上相加
+                    '''
+                    注意如果add.backward()中直接将gy返回, 那么这里不能是x.grad += gx, 
+                    而应该是x.grad = x.grad + gx
+                    这是因为在add的backward中直接将gy的引用传播下来了, 
+                    因此x.grad其实和y.grad是一个数组, 如果使用 +=, 是就地操作会影响y.grad
+                    但其实可以修改 add.backward(), 使其不要传播gy的引用
+                    '''
+                    x.grad += gx
+                # 保存每个输入的创造者
+                if x.creator is not None:
+                    funcs.append(x.creator)
+    
+    def cleargrad(self):
+        self.grad = None
+
         
 class Function:
     def __call__(self, *inputs):
@@ -63,7 +88,8 @@ class Square(Function):
         return x ** 2
     
     def backward(self, gy):
-        x = self.input.data
+        x = self.inputs[0].data
+        # x = self.input.data
         gx = 2 * x * gy
         return gx
     
@@ -80,6 +106,11 @@ class Add(Function):
     def forward(self, x0, x1):
         y = x0 + x1
         return y
+    
+    def backward(self, gy):
+        gx0 = 1 * gy
+        gx1 = 1 * gy
+        return gx0, gx1
 
 def square(x):
     return Square()(x)
