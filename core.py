@@ -123,6 +123,9 @@ class Add(Function):
         return y
     
     def backward(self, gy):
+        # 这里可以直接return gy
+        # 这样的话返回的就是输入的引用
+        # 在Variable的backword中就需要更改，详细见注释
         gx0 = 1 * gy
         gx1 = 1 * gy
         return gx0, gx1
