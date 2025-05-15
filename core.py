@@ -1,4 +1,5 @@
 import numpy as np
+import weakref
 
 from utils import as_array
 
@@ -46,7 +47,8 @@ class Variable:
             # 获得后面的func
             f = funcs.pop()
             # 获取输出
-            gys = [output.grad for output in f.outputs]
+            # gys = [output.grad for output in f.outputs]
+            gys = [output().grad for output in f.outputs]
             # 调用函数的backward，获得输入的梯度，并作为下一个函数backward的输入
             gxs = f.backward(*gys)
             if not isinstance(gxs, tuple):
@@ -86,7 +88,7 @@ class Function:
         for output in outputs:
             output.set_creator(self)
         self.inputs = inputs
-        self.outputs = outputs
+        self.outputs = [weakref.ref(output) for output in outputs]
         
         # 如果列表只有一个元素，则返回第一个元素
         return outputs if len(outputs) > 1 else outputs[0]
