@@ -1,5 +1,6 @@
 import numpy as np
 import weakref
+import contextlib
 
 from utils import as_array
 
@@ -26,7 +27,7 @@ class Variable:
     #         x.grad = f.backward(self.grad)      # 调用函数的backward方法
     #         x.backward()    # 调用自己前面那个变量的backward方法（递归）
     
-    def backward(self):
+    def backward(self, retain_grad=False):
         # 最后的输出是没有梯度的，需要指定梯度
         if self.grad is None:
             self.grad = np.ones_like(self.data)
@@ -70,6 +71,10 @@ class Variable:
                 # 保存每个输入的创造者
                 if x.creator is not None:
                     add_func(x.creator)
+            
+            if not retain_grad:
+                for y in f.outputs:
+                    y().grad = None     # y是weakref
     
     def cleargrad(self):
         self.grad = None
@@ -83,12 +88,13 @@ class Function:
             ys = (ys,)
         outputs = [Variable(as_array(y)) for y in ys]
         
-        self.generation = max([x.generation for x in inputs])
+        if Config.enable_backprop:
+            self.generation = max([x.generation for x in inputs])
         
-        for output in outputs:
-            output.set_creator(self)
-        self.inputs = inputs
-        self.outputs = [weakref.ref(output) for output in outputs]
+            for output in outputs:
+                output.set_creator(self)
+            self.inputs = inputs
+            self.outputs = [weakref.ref(output) for output in outputs]
         
         # 如果列表只有一个元素，则返回第一个元素
         return outputs if len(outputs) > 1 else outputs[0]
@@ -149,6 +155,29 @@ def numerical_diff(f, x, eps=1e-4):
     return (y1.data - y0.data) / (2 * eps)
 
 
+class Config:
+    enable_backprop = True
 
+@contextlib.contextmanager
+def using_config(name, value):
+    old_value = getattr(Config, name)
+    setattr(Config, name, value)
+    try:
+        yield
+    finally:
+        setattr(Config, name, old_value)
+
+
+def no_grad():
+    return using_config('enable_backprop', False)
+
+if __name__ == "__main__":
+    x0 = Variable(np.array(1.0))
+    x1 = Variable(np.array(1.0))
+    t = add(x0, x1)
+    y = add(x0, t)
+    y.backward()
     
+    print(y.grad, t.grad)
+    print(x0.grad, x1.grad)
     
